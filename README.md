@@ -20,6 +20,8 @@ curl -X POST https://YOUR_PANEL:3000/api/trpc/auth.login \
 
 The response contains `"token":"xxx"` — that's your API token.
 
+> ⚠️ This is a **session token** that expires in 30 days. For a permanent token, use `users.generateApiToken` (see below).
+
 ### 2. Deploy on EasyPanel
 
 1. Create a new project (e.g. `mcp`)
@@ -27,16 +29,22 @@ The response contains `"token":"xxx"` — that's your API token.
 3. Source → **GitHub** → `dray-supadev/easypanel-mcp`, branch `main`
 4. Set environment variables:
    ```
-   EASYPANEL_URL=https://your-panel-domain:3000
+   EASYPANEL_URL=http://easypanel:3000
    EASYPANEL_TOKEN=your-api-token
    EASYPANEL_MCP_MODE=http
    MCP_API_KEY=your-secret-key
+   MCP_ACCESS_MODE=readonly
    PORT=3000
    ```
+   
+   > **Important:** Use `http://easypanel:3000` (internal Docker network) when deploying on the same EasyPanel instance. External URLs won't work from inside the container.
+   
+   > **`MCP_ACCESS_MODE`**: Set to `readonly` to block all write operations (create, deploy, destroy, restart). Set to `full` when you're ready to allow mutations.
+
 5. Add a domain (e.g. `mcp.your-domain.com`)
 6. Deploy!
 
-> ⚠️ **Set `MCP_API_KEY`** to protect your endpoint. Without it, anyone with the URL can control your server.
+> ⚠️ **Set `MCP_API_KEY`** to protect your endpoint. Without it, anyone with the URL can control your server. Use a simple alphanumeric key — special characters (`!`, `%`, `^`) may break in env vars.
 
 ### 3. Connect Claude Desktop
 
@@ -128,6 +136,25 @@ npm install && npm run build
 | `MCP_API_KEY` | Recommended | Protects the MCP endpoint |
 | `MCP_ACCESS_MODE` | No | `full` (default) or `readonly` — blocks all mutations |
 | `PORT` | No | HTTP port (default: 3000) |
+
+## Generating a Permanent API Token
+
+Session tokens expire. To get a permanent one:
+
+```bash
+# 1. Get your user ID
+curl -s "https://YOUR_PANEL:3000/api/trpc/auth.getUser" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+# Find "id" in the response
+
+# 2. Generate permanent API token
+curl -X POST "https://YOUR_PANEL:3000/api/trpc/users.generateApiToken" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"json":{"id":"YOUR_USER_ID"}}'
+```
+
+The permanent token is stored in the user record. Use it as `EASYPANEL_TOKEN` — it never expires.
 
 ## How It Works
 
