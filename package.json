@@ -1,0 +1,22 @@
+{
+  "name": "easypanel-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for EasyPanel tRPC API",
+  "type": "module",
+  "bin": {
+    "easypanel-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
