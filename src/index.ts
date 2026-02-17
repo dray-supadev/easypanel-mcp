@@ -235,5 +235,14 @@ server.tool("trpc_raw", "Call any EasyPanel tRPC procedure directly. 347 procedu
   } catch (e) { return err(e); }
 });
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+// Start in HTTP or stdio mode
+const mode = process.env.EASYPANEL_MCP_MODE || "stdio";
+const port = parseInt(process.env.PORT || "3100", 10);
+
+if (mode === "http") {
+  const { startHttpServer } = await import("./http-server.js");
+  await startHttpServer(server, port);
+} else {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

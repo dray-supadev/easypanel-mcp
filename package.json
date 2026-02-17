@@ -1,15 +1,25 @@
 {
   "name": "easypanel-mcp",
-  "version": "0.1.0",
-  "description": "MCP server for EasyPanel tRPC API",
+  "version": "0.2.0",
+  "description": "MCP server for EasyPanel — manage servers, projects, services, databases via AI",
   "type": "module",
   "bin": {
     "easypanel-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["mcp", "easypanel", "server", "hosting", "ai", "claude", "model-context-protocol"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dray-supadev/easypanel-mcp"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
