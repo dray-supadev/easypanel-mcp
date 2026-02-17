@@ -31,10 +31,13 @@ function err(e: unknown) {
   const msg = e instanceof Error ? e.message : String(e);
   return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true as const };
 }
+const READONLY = (process.env.MCP_ACCESS_MODE || "full").toLowerCase() === "readonly";
+
 async function q(proc: string, input?: Record<string, unknown>) {
   try { return ok(await client.query(proc, input as any)); } catch (e) { return err(e); }
 }
 async function m(proc: string, input?: Record<string, unknown>) {
+  if (READONLY) return { content: [{ type: "text" as const, text: "Error: Read-only mode. Mutations are disabled (MCP_ACCESS_MODE=readonly)." }], isError: true as const };
   try { return ok(await client.mutation(proc, input ?? {})); } catch (e) { return err(e); }
 }
 

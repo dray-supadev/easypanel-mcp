@@ -126,6 +126,7 @@ npm install && npm run build
 | `EASYPANEL_TOKEN` | ✅ | API token from login |
 | `EASYPANEL_MCP_MODE` | For HTTP | Set to `http` for remote deployment |
 | `MCP_API_KEY` | Recommended | Protects the MCP endpoint |
+| `MCP_ACCESS_MODE` | No | `full` (default) or `readonly` — blocks all mutations |
 | `PORT` | No | HTTP port (default: 3000) |
 
 ## How It Works
