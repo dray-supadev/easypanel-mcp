@@ -1,22 +1,71 @@
 # easypanel-mcp
 
-MCP server for [EasyPanel](https://easypanel.io) — manage your server, projects, services, databases, and domains through any MCP-compatible AI agent.
+MCP server for [EasyPanel](https://easypanel.io) — manage your server, projects, services, databases, and domains through any MCP-compatible AI agent (Claude, Cursor, etc.).
 
-**342 tools** covering the entire EasyPanel tRPC API (43 namespaces, 347 procedures).
+**40 curated tools** + raw tRPC access to all **347 EasyPanel API procedures**.
 
-## Quick Start
+## 🚀 Quick Setup (Deploy on EasyPanel)
+
+The easiest way — deploy the MCP server as a service on your own EasyPanel:
+
+### 1. Get your API token
 
 ```bash
-npm install
-npm run build
-
-export EASYPANEL_URL="http://your-server:3000"
-export EASYPANEL_TOKEN="your-api-token"
-
-npm start
+curl -X POST https://YOUR_PANEL:3000/api/trpc/auth.login \
+  -H "Content-Type: application/json" \
+  -d '{"json":{"email":"you@email.com","password":"your-pass"}}'
 ```
 
-## MCP Config
+> If you have 2FA enabled, add `"code":"123456"` with your authenticator code.
+
+The response contains `"token":"xxx"` — that's your API token.
+
+### 2. Deploy on EasyPanel
+
+1. Create a new project (e.g. `mcp`)
+2. Create an **App** service
+3. Source → **GitHub** → `dray-supadev/easypanel-mcp`, branch `main`
+4. Set environment variables:
+   ```
+   EASYPANEL_URL=https://your-panel-domain:3000
+   EASYPANEL_TOKEN=your-api-token
+   EASYPANEL_MCP_MODE=http
+   MCP_API_KEY=your-secret-key
+   PORT=3000
+   ```
+5. Add a domain (e.g. `mcp.your-domain.com`)
+6. Deploy!
+
+> ⚠️ **Set `MCP_API_KEY`** to protect your endpoint. Without it, anyone with the URL can control your server.
+
+### 3. Connect Claude Desktop
+
+Edit `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac):
+
+```json
+{
+  "mcpServers": {
+    "easypanel": {
+      "url": "https://mcp.your-domain.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-secret-key"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Done! Ask Claude to "show my projects" 🎉
+
+## 💻 Local Setup (Alternative)
+
+Run the MCP server locally via stdio (no deployment needed):
+
+```bash
+git clone https://github.com/dray-supadev/easypanel-mcp.git
+cd easypanel-mcp
+npm install && npm run build
+```
 
 ```json
 {
@@ -25,7 +74,7 @@ npm start
       "command": "node",
       "args": ["/path/to/easypanel-mcp/dist/index.js"],
       "env": {
-        "EASYPANEL_URL": "http://your-server:3000",
+        "EASYPANEL_URL": "https://your-panel:3000",
         "EASYPANEL_TOKEN": "your-api-token"
       }
     }
@@ -33,53 +82,55 @@ npm start
 }
 ```
 
-## Tool Categories
+## 🔧 Available Tools (40)
 
-| Category | Tools | Description |
-|----------|-------|-------------|
-| **Projects** | 9 | Create, inspect, destroy projects |
-| **App Services** | 21 | Deploy, start, stop, configure apps |
-| **Compose** | 15 | Docker Compose services |
-| **Box (DevBox)** | 29 | IDE-in-browser dev environments |
-| **WordPress** | 49 | Full WP management (plugins, themes, users, DB) |
-| **Databases** | 60 | Postgres, MySQL, MariaDB, MongoDB, Redis |
-| **Domains** | 6 | Domain management and SSL |
-| **Monitoring** | 5 | System stats, service stats, storage |
-| **Cloudflare Tunnel** | 11 | Tunnel management |
-| **Backups** | 12 | Database & volume backups |
-| **Branding** | 12 | Panel customization |
-| **Settings** | 20+ | Panel config, Docker cleanup, updates |
-| **Users & Auth** | 8 | User management, API tokens, 2FA |
-| **Raw tRPC** | 1 | Direct access to any procedure |
+### Projects
+`list_projects` · `create_project` · `destroy_project` · `inspect_project`
 
-## Getting an API Token
+### App Services
+`create_app` · `inspect_app` · `deploy_app` · `start_app` · `stop_app` · `restart_app` · `destroy_app` · `set_app_source_image` · `set_app_source_github` · `set_app_env` · `set_app_resources`
 
-1. Log into EasyPanel UI
-2. Go to Settings → Generate API Token
+### Databases (Postgres, MySQL, MariaDB, MongoDB, Redis)
+`create_database` · `inspect_database` · `destroy_database`
 
-Or via CLI:
-```bash
-curl -X POST http://your-server:3000/api/trpc/auth.login \
-  -H "Content-Type: application/json" \
-  -d '{"json":{"email":"admin@example.com","password":"your-password"}}'
-# Returns: {"result":{"data":{"json":{"token":"your-token"}}}}
-```
+### Domains & Ports
+`list_domains` · `create_domain` · `delete_domain` · `create_port` · `list_ports`
 
-## Raw tRPC Access
+### Volumes
+`create_mount` · `list_mounts`
 
-For any procedure not covered by a dedicated tool, use `easypanel_trpc_raw`:
+### Monitoring
+`system_stats` · `service_stats` · `storage_stats`
 
-```
-procedure: "cloudflareTunnel.listZones"
-input: {}
-isMutation: false
-```
+### Docker Compose
+`create_compose` · `inspect_compose` · `deploy_compose`
 
-All 347 EasyPanel tRPC procedures are accessible.
+### System
+`cleanup_docker` · `system_prune` · `restart_panel` · `reboot_server` · `list_users` · `list_certificates` · `list_nodes` · `deploy_template`
+
+### Escape Hatch
+`trpc_raw` — call any of the 347 tRPC procedures directly
+
+## 🔒 Security
+
+- **`MCP_API_KEY`** — protects the HTTP endpoint with Bearer token auth
+- **`EASYPANEL_TOKEN`** — authenticates with your EasyPanel instance
+- Health endpoint (`/health`) is always public (returns no sensitive data)
+- In local/stdio mode, no network auth is needed
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EASYPANEL_URL` | ✅ | Your EasyPanel URL |
+| `EASYPANEL_TOKEN` | ✅ | API token from login |
+| `EASYPANEL_MCP_MODE` | For HTTP | Set to `http` for remote deployment |
+| `MCP_API_KEY` | Recommended | Protects the MCP endpoint |
+| `PORT` | No | HTTP port (default: 3000) |
 
 ## How It Works
 
-EasyPanel exposes a tRPC API at `/api/trpc/`. This MCP server was built by reverse-engineering EasyPanel's frontend to extract all procedure names and input schemas, then mapping each to an MCP tool with proper Zod validation.
+EasyPanel exposes a tRPC API at `/api/trpc/`. This MCP server was built by reverse-engineering EasyPanel's frontend to extract all 347 procedure names across 43 namespaces, then mapping the most useful ones to typed MCP tools.
 
 ## License
 

@@ -1,11 +1,32 @@
 /**
  * HTTP server wrapper for MCP — enables remote deployment.
- * Run with EASYPANEL_MCP_MODE=http to start as HTTP server.
+ * 
+ * Env:
+ *   EASYPANEL_MCP_MODE=http  — enables HTTP mode
+ *   MCP_API_KEY              — optional API key to protect the endpoint
+ *   PORT                     — server port (default 3000)
  */
 
 import { createServer } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+const API_KEY = process.env.MCP_API_KEY;
+
+function checkAuth(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse): boolean {
+  if (!API_KEY) return true; // No key = no auth (dev mode)
+  
+  const auth = req.headers.authorization;
+  if (auth === `Bearer ${API_KEY}`) return true;
+  
+  // Also check query param for SSE connections
+  const url = new URL(req.url || "/", `http://${req.headers.host}`);
+  if (url.searchParams.get("api_key") === API_KEY) return true;
+
+  res.writeHead(401, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "Unauthorized. Set Authorization: Bearer <MCP_API_KEY>" }));
+  return false;
+}
 
 export async function startHttpServer(server: McpServer, port: number) {
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
@@ -24,15 +45,19 @@ export async function startHttpServer(server: McpServer, port: number) {
       return;
     }
 
-    // Health check
+    // Health check (no auth required)
     if (req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", tools: 40 }));
+      res.end(JSON.stringify({ status: "ok", tools: 40, auth: !!API_KEY }));
       return;
     }
 
+    // Auth check for MCP endpoint
+    if (!checkAuth(req, res)) return;
+
     // MCP endpoint
-    if (req.url === "/mcp") {
+    const pathname = new URL(req.url || "/", `http://${req.headers.host}`).pathname;
+    if (pathname === "/mcp") {
       await transport.handleRequest(req, res);
       return;
     }
@@ -43,5 +68,6 @@ export async function startHttpServer(server: McpServer, port: number) {
 
   httpServer.listen(port, "0.0.0.0", () => {
     console.log(`EasyPanel MCP server running at http://0.0.0.0:${port}/mcp`);
+    console.log(`Auth: ${API_KEY ? "enabled (MCP_API_KEY set)" : "disabled (set MCP_API_KEY to protect)"}`);
   });
 }
