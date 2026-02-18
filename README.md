@@ -174,6 +174,10 @@ Your user now has an `"apiToken"` field — that's the permanent token. Set it a
 
 EasyPanel exposes a tRPC API at `/api/trpc/`. This MCP server was built by reverse-engineering EasyPanel's frontend to extract all 347 procedure names across 43 namespaces, then mapping the most useful ones to typed MCP tools.
 
+## Disclaimer
+
+This tool communicates with EasyPanel's public tRPC API. Some EasyPanel features may require a valid license. Please respect [EasyPanel's licensing terms](https://easypanel.io/pricing). This project is not affiliated with or endorsed by EasyPanel.
+
 ## License
 
 MIT
