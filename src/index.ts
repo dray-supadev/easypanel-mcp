@@ -225,6 +225,18 @@ server.tool("deploy_template", "Deploy from an EasyPanel one-click template", {
   schema: z.record(z.string(), z.unknown()).describe("Template schema object"),
 }, async (a) => m("templates.createFromSchema", a));
 
+// ===================== DEPLOY LOGS =====================
+
+server.tool("list_actions", "List recent deploy actions/builds. Filter by project or service.", {
+  projectName: z.string().optional(),
+  serviceName: z.string().optional(),
+  limit: z.number().optional().describe("Number of actions to return (default 8)"),
+}, async (a) => q("actions.listActions", a));
+
+server.tool("get_action_log", "Get deploy action details including full build/deploy log", {
+  id: z.string().describe("Action ID from list_actions"),
+}, async (a) => q("actions.getAction", a));
+
 // ===================== RAW tRPC =====================
 
 server.tool("trpc_raw", "Call any EasyPanel tRPC procedure directly. 347 procedures across 43 namespaces. Use for anything not covered above. Examples: wordpress.getPlugins, box.createService, traefik.getDashboard, branding.getBasicSettings, cloudflareTunnel.listTunnels", {
