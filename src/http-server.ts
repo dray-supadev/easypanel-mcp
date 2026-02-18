@@ -1,10 +1,6 @@
 /**
  * HTTP server wrapper for MCP — enables remote deployment.
- * 
- * Env:
- *   EASYPANEL_MCP_MODE=http  — enables HTTP mode
- *   MCP_API_KEY              — optional API key to protect the endpoint
- *   PORT                     — server port (default 3000)
+ * Creates a new transport per session to avoid "already initialized" errors.
  */
 
 import { createServer } from "node:http";
@@ -14,12 +10,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 const API_KEY = process.env.MCP_API_KEY;
 
 function checkAuth(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse): boolean {
-  if (!API_KEY) return true; // No key = no auth (dev mode)
+  if (!API_KEY) return true;
   
   const auth = req.headers.authorization;
   if (auth === `Bearer ${API_KEY}`) return true;
   
-  // Also check query param for SSE connections
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
   if (url.searchParams.get("api_key") === API_KEY) return true;
 
@@ -28,9 +23,8 @@ function checkAuth(req: import("node:http").IncomingMessage, res: import("node:h
   return false;
 }
 
-export async function startHttpServer(server: McpServer, port: number) {
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
-  await server.connect(transport);
+export async function startHttpServer(createMcpServer: () => McpServer, port: number) {
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>();
 
   const httpServer = createServer(async (req, res) => {
     // CORS
@@ -45,29 +39,61 @@ export async function startHttpServer(server: McpServer, port: number) {
       return;
     }
 
-    // Health check (no auth required)
+    // Health check
     if (req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", tools: 40, auth: !!API_KEY }));
+      res.end(JSON.stringify({ status: "ok", tools: 40, auth: !!API_KEY, sessions: sessions.size }));
       return;
     }
 
-    // Auth check for MCP endpoint
     if (!checkAuth(req, res)) return;
 
-    // MCP endpoint
     const pathname = new URL(req.url || "/", `http://${req.headers.host}`).pathname;
-    if (pathname === "/mcp") {
-      await transport.handleRequest(req, res);
+    if (pathname !== "/mcp") {
+      res.writeHead(404);
+      res.end("Not found. MCP endpoint: /mcp");
       return;
     }
 
-    res.writeHead(404);
-    res.end("Not found. MCP endpoint: /mcp");
+    // Check for existing session
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    
+    if (sessionId && sessions.has(sessionId)) {
+      // Existing session
+      const session = sessions.get(sessionId)!;
+      await session.transport.handleRequest(req, res);
+      return;
+    }
+
+    if (sessionId && !sessions.has(sessionId)) {
+      // Unknown session — tell client to reinitialize
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Session not found. Please reinitialize." }));
+      return;
+    }
+
+    // New session — create transport + server
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+      onsessioninitialized: (id) => {
+        sessions.set(id, { transport, server });
+      },
+    });
+
+    const server = createMcpServer();
+    
+    // Clean up on close
+    transport.onclose = () => {
+      const id = [...sessions.entries()].find(([, v]) => v.transport === transport)?.[0];
+      if (id) sessions.delete(id);
+    };
+
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
   });
 
   httpServer.listen(port, "0.0.0.0", () => {
     console.log(`EasyPanel MCP server running at http://0.0.0.0:${port}/mcp`);
-    console.log(`Auth: ${API_KEY ? "enabled (MCP_API_KEY set)" : "disabled (set MCP_API_KEY to protect)"}`);
+    console.log(`Auth: ${API_KEY ? "enabled" : "disabled"}`);
   });
 }

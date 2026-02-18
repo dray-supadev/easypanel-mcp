@@ -22,6 +22,8 @@ if (!EP_URL) { console.error("EASYPANEL_URL required"); process.exit(1); }
 if (!EP_TOKEN) { console.error("EASYPANEL_TOKEN required"); process.exit(1); }
 
 const client = new EasyPanelClient(EP_URL, EP_TOKEN);
+
+function createServer() {
 const server = new McpServer({ name: "easypanel", version: "0.2.0" });
 
 function ok(r: unknown) {
@@ -238,14 +240,18 @@ server.tool("trpc_raw", "Call any EasyPanel tRPC procedure directly. 347 procedu
   } catch (e) { return err(e); }
 });
 
+return server;
+}
+
 // Start in HTTP or stdio mode
 const mode = process.env.EASYPANEL_MCP_MODE || "stdio";
 const port = parseInt(process.env.PORT || "3100", 10);
 
 if (mode === "http") {
   const { startHttpServer } = await import("./http-server.js");
-  await startHttpServer(server, port);
+  await startHttpServer(createServer, port);
 } else {
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
