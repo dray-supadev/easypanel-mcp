@@ -139,22 +139,36 @@ npm install && npm run build
 
 ## Generating a Permanent API Token
 
-Session tokens expire. To get a permanent one:
+Session tokens from `auth.login` expire in 30 days. For a permanent token:
+
+**Step 1.** Get your user ID:
 
 ```bash
-# 1. Get your user ID
-curl -s "https://YOUR_PANEL:3000/api/trpc/auth.getUser" \
+curl -s "https://YOUR_PANEL:3000/api/trpc/users.listUsers" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN"
-# Find "id" in the response
+```
 
-# 2. Generate permanent API token
-curl -X POST "https://YOUR_PANEL:3000/api/trpc/users.generateApiToken" \
+Find your email in the response and copy the `"id"` field.
+
+**Step 2.** Generate the permanent token:
+
+```bash
+curl -s -X POST "https://YOUR_PANEL:3000/api/trpc/users.generateApiToken" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"json":{"id":"YOUR_USER_ID"}}'
 ```
 
-The permanent token is stored in the user record. Use it as `EASYPANEL_TOKEN` — it never expires.
+**Step 3.** Retrieve the token — list users again:
+
+```bash
+curl -s "https://YOUR_PANEL:3000/api/trpc/users.listUsers" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+
+Your user now has an `"apiToken"` field — that's the permanent token. Set it as `EASYPANEL_TOKEN` in your MCP service env.
+
+> This token **never expires** unless you revoke it via `users.revokeApiToken`.
 
 ## How It Works
 
