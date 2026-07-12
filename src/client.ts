@@ -50,15 +50,16 @@ export class EasyPanelClient {
 
   async query(procedure: string, input?: Record<string, unknown>): Promise<unknown> {
     const url = `${this.baseUrl}/api/trpc/${procedure}`;
-    // The Easypanel panel (behind Cloudflare) drops the GET `?input=` querystring on
-    // tRPC calls, so input-bearing queries fail with "Input validation failed" (empty
-    // zodErrors — the input arrives undefined at the resolver). tRPC also accepts
-    // queries over POST, and a POST body survives the proxy untouched, so route any
-    // input-bearing query through POST. No-input queries keep using GET (nothing to lose).
-    if (input !== undefined) {
-      return this.request("POST", url, { json: input });
-    }
-    return this.request("GET", url);
+    // GET is a dead end against these panels, for both query shapes:
+    //  - GET with `?input=`: the proxy (Cloudflare) drops the querystring, so the
+    //    resolver receives input undefined ("Input validation failed", empty zodErrors).
+    //  - GET without `?input=`: modern Easypanel rejects the bare GET outright with
+    //    405 METHOD_NOT_SUPPORTED (reproduced in prod on both panels, 2026-07-12).
+    // The panel does accept queries over POST, and the body survives the proxy
+    // untouched, so route EVERY query through POST — a no-input query sends the
+    // explicit empty envelope `{"json":{}}` (same shape as the trpc_raw workaround
+    // that worked in prod).
+    return this.request("POST", url, { json: input ?? {} });
   }
 
   async mutation(procedure: string, input: Record<string, unknown>): Promise<any> {
